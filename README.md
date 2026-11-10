@@ -22,4 +22,24 @@ To prevent transient glitches during cross-domain synchronization, binary pointe
 ## Hardware Modules
 The architecture is modularized into five core Verilog files for streamlined synthesis and static timing analysis:
 1. **`fifo.v`**: The top-level wrapper instantiating the complete system. In ASIC designs, this helps isolate and group domain-crossing logic.
-2. **`fifo_memory.v`**: A dual-port RAM array featuring independent read and write ports. Data
+2. **`fifo_memory.v`**: A dual-port RAM array featuring independent read and write ports. Data is latched on the write clock's rising edge provided the buffer is not full.
+3. **`read_ptr.v`**: Manages read-domain operations. Synchronized strictly by the read clock, it handles Gray code conversion and empty flag generation.
+4. **`write_ptr.v`**: Manages write-domain operations. Synchronized by the write clock, it updates the write pointer and triggers the full flag.
+5. **`two_ff_syn.v`**: A 2-Flip-Flop synchronizer that safely routes pointers between domains, mitigating metastability by allowing the signal to settle before destination sampling.
+
+## Signal Definitions
+* **`wclk` / `rclk`:** Independent write and read domain clock signals.
+* **`wdata` / `rdata`:** Input and output data buses.
+* **`wclk_en` / `rinc`:** Enable signals authorizing write or read pointer increments.
+* **`wfull` / `rempty`:** Status flags preventing memory overwrite (overflow) or invalid reads (underflow).
+* **`wptr` / `rptr`:** Gray code pointers native to each respective domain.
+* **`w_rptr` / `r_wptr`:** Cross-synchronized pointers utilized for Empty/Full condition evaluation.
+
+## Verification and Testing
+The included testbench (`fifo_tb.v`) validates the RTL design against three critical stress conditions:
+* **Linear Flow:** Standard sequential write operations followed by reads to confirm complete data parity.
+* **Overflow Protection:** Attempting continuous writes to a full FIFO to ensure the `wfull` flag correctly halts the operation.
+* **Underflow Protection:** Attempting continuous reads from an empty FIFO to ensure the `rempty` flag successfully prevents invalid data output.
+
+## Results
+Simulation waveforms confirm that the Full and Empty flags assert precisely at the memory wrap-around boundaries and that data remains consistent despite the asynchronous clock barrier. While behavioral simulations validate functional correctness, physical hardware deployment requires rigorous Static Timing Analysis (STA) to guarantee metastability constraints are satisfied.
